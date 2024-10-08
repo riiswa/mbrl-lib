@@ -32,10 +32,12 @@ class QNetwork(nn.Module):
             return x
 
 class DDQNAgent(Agent):
-    def __init__(self, num_inputs, action_space, args):
+    def __init__(self, num_inputs, action_space, strategy, num_epochs, args):
         self.args = args
         self.gamma = args.gamma
         self.tau = args.tau
+        self.strategy = strategy
+        self.num_epochs = num_epochs
 
         self.target_update_interval = args.target_update_interval
 
@@ -47,13 +49,35 @@ class DDQNAgent(Agent):
         self.target_network = QNetwork(num_inputs, action_space.n, args.hidden_size, args.negative_activation).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
 
-    def select_action(self, state, batched=False, evaluate=False):
+    def compute_epsilon(self, epoch):
+        end_epoch = int(self.strategy.exploration_fraction * self.num_epochs)
+        if epoch >= end_epoch:
+            return self.strategy.exploration_initial_eps
+        else:
+            return self.strategy.exploration_initial_eps - (self.strategy.exploration_initial_eps - self.strategy.exploration_final_eps) * (epoch / end_epoch)
+
+    def select_action(self, state, batched=False, evaluate=False, epoch=None):
         state = torch.FloatTensor(state)
         if not batched:
             state = state.unsqueeze(0)
         state = state.to(self.device)
         q_values = self.q_network(state)
-        action = torch.argmax(q_values, dim=-1)
+
+        if self.strategy.name == "epsilon-greedy" and not evaluate and epoch is not None:
+            epsilon = self.compute_epsilon(epoch)
+            if batched:
+                random_actions = torch.randint(0, q_values.shape[-1], (q_values.shape[0],))
+                greedy_actions = torch.argmax(q_values, dim=-1)
+                random_choice = torch.rand(q_values.shape[0]) < epsilon
+                action = torch.where(random_choice, random_actions, greedy_actions)
+            else:
+                if np.random.rand() < epsilon:
+                    action = torch.randint(0, q_values.shape[-1], (1,))
+                else:
+                    action = torch.argmax(q_values, dim=-1)
+        else:
+            action = torch.argmax(q_values, dim=-1)
+
         if batched:
             return action.detach().cpu().numpy()
         return action.detach().cpu().numpy()[0]
@@ -63,7 +87,7 @@ class DDQNAgent(Agent):
     ) -> np.ndarray:
         with torch.no_grad():
             return self.select_action(
-                obs, batched=batched, evaluate=not sample
+                obs, batched=batched, evaluate=not sample, **_kwargs
             )
 
     def update_parameters(
@@ -108,6 +132,7 @@ class DDQNAgent(Agent):
 
         self.optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), self.args.grad_clip)
         self.optimizer.step()
 
         if updates % self.target_update_interval == 0:

@@ -10,6 +10,7 @@ import hydra.utils
 import numpy as np
 import omegaconf
 import torch
+from omegaconf import open_dict
 from torch.utils.tensorboard import SummaryWriter
 
 import mbrl.constants
@@ -35,7 +36,6 @@ def rollout_model_and_populate_sac_buffer(
     replay_buffer: mbrl.util.ReplayBuffer,
     agent: DDQNAgent,
     sac_buffer: mbrl.util.ReplayBuffer,
-    sac_samples_action: bool,
     rollout_horizon: int,
     batch_size: int,
 ):
@@ -48,7 +48,7 @@ def rollout_model_and_populate_sac_buffer(
     accum_dones = np.zeros(initial_obs.shape[0], dtype=bool)
     obs = initial_obs
     for i in range(rollout_horizon):
-        action = agent.act(obs, sample=sac_samples_action, batched=True)
+        action = agent.act(obs, sample=False, batched=True)
         pred_next_obs, pred_rewards, pred_dones, model_state = model_env.step(
             action, model_state, sample=True
         )
@@ -63,29 +63,6 @@ def rollout_model_and_populate_sac_buffer(
         )
         obs = pred_next_obs
         accum_dones |= pred_dones.squeeze()
-
-
-def evaluate(
-    env: gym.Env,
-    agent: DDQNAgent,
-    num_episodes: int,
-    video_recorder: VideoRecorder,
-) -> float:
-    avg_episode_reward = 0.0
-    for episode in range(num_episodes):
-        obs, _ = env.reset()
-        video_recorder.init(enabled=(episode == 0))
-        terminated = False
-        truncated = False
-        episode_reward = 0.0
-        while not terminated and not truncated:
-
-            action = agent.act(obs)
-            obs, reward, terminated, truncated, _ = env.step(action)
-            video_recorder.record(env)
-            episode_reward += reward
-        avg_episode_reward += episode_reward
-    return avg_episode_reward / num_episodes
 
 
 def maybe_replace_sac_buffer(
@@ -131,6 +108,10 @@ def train(
     act_shape = env.action_space.shape
 
     mbrl.planning.complete_agent_cfg(env, cfg.algorithm.agent)
+    with open_dict(cfg.algorithm.agent):
+        cfg.algorithm.agent.strategy = cfg.strategy
+        cfg.algorithm.agent.num_epochs = cfg.overrides.num_epochs
+
     agent = cast(DDQNAgent, hydra.utils.instantiate(cfg.algorithm.agent))
 
     work_dir = work_dir or os.getcwd()
@@ -234,7 +215,7 @@ def train(
             truncated,
             _,
         ) = mbrl.util.common.step_env_and_add_to_buffer(
-            env, obs, agent, {}, replay_buffer
+            env, obs, agent, {"epoch": epoch}, replay_buffer
         )
 
         episodic_reward += reward
@@ -257,7 +238,6 @@ def train(
                 replay_buffer,
                 agent,
                 sac_buffer,
-                cfg.algorithm.sac_samples_action,
                 rollout_length,
                 rollout_batch_size,
             )

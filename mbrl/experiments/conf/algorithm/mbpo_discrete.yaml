@@ -35,3 +35,4 @@ agent:
     device: ${device}
     lr: ${overrides.sac_lr}
     negative_activation: ${overrides.negative_activation}
+    grad_clip: ${overrides.sac_grad_clip}
