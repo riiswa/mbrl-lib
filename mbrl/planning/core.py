@@ -100,11 +100,14 @@ def complete_agent_cfg(
     if "action_space" in agent_cfg.keys() and isinstance(
         agent_cfg.action_space, omegaconf.DictConfig
     ):
-        _check_and_replace("low", env.action_space.low.tolist(), agent_cfg.action_space)
-        _check_and_replace(
-            "high", env.action_space.high.tolist(), agent_cfg.action_space
-        )
-        _check_and_replace("shape", env.action_space.shape, agent_cfg.action_space)
+        if "n" in agent_cfg.action_space.keys():
+            _check_and_replace("n", env.action_space.n.item(), agent_cfg.action_space)
+        else:
+            _check_and_replace("low", env.action_space.low.tolist(), agent_cfg.action_space)
+            _check_and_replace(
+                "high", env.action_space.high.tolist(), agent_cfg.action_space
+            )
+            _check_and_replace("shape", env.action_space.shape, agent_cfg.action_space)
 
     if "obs_dim" in agent_cfg.keys() and "obs_dim" not in agent_cfg:
         agent_cfg.obs_dim = obs_shape[0]

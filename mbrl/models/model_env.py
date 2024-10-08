@@ -105,7 +105,7 @@ class ModelEnv:
             (tuple): contains the predicted next observation, reward, done flag and metadata.
             The done flag is computed using the termination_fn passed in the constructor.
         """
-        assert len(actions.shape) == 2  # batch, action_dim
+        #assert len(actions.shape) == 2  # batch, action_dim
         with torch.no_grad():
             # if actions is tensor, code assumes it's already on self.device
             if isinstance(actions, np.ndarray):

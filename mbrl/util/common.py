@@ -28,6 +28,7 @@ def create_one_dim_tr_model(
     obs_shape: Tuple[int, ...],
     act_shape: Tuple[int, ...],
     model_dir: Optional[Union[str, pathlib.Path]] = None,
+    act_is_discrete: bool = False,
 ):
     """Creates a 1-D transition reward model from a given configuration.
 
@@ -92,6 +93,19 @@ def create_one_dim_tr_model(
         obs_process_fn = hydra.utils.get_method(cfg.overrides.obs_process_fn)
     else:
         obs_process_fn = None
+    if act_is_discrete:
+        import torch
+        def to_one_hot(a):
+            if isinstance(a, np.ndarray):
+                return np.eye(act_shape[0])[a.astype(int)]
+            elif isinstance(a, torch.Tensor):
+                return torch.nn.functional.one_hot(a, act_shape[0])
+            else:
+                raise NotImplementedError
+
+        act_process_fn = to_one_hot
+    else:
+        act_process_fn = None
     dynamics_model = mbrl.models.OneDTransitionRewardModel(
         model,
         target_is_delta=cfg.algorithm.target_is_delta,
@@ -101,6 +115,7 @@ def create_one_dim_tr_model(
         ),
         learned_rewards=cfg.algorithm.learned_rewards,
         obs_process_fn=obs_process_fn,
+        act_process_fn=act_process_fn,
         no_delta_list=cfg.overrides.get("no_delta_list", None),
         num_elites=cfg.overrides.get("num_elites", None),
     )

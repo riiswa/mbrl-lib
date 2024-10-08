@@ -78,6 +78,7 @@ class OneDTransitionRewardModel(Model):
         normalize_double_precision: bool = False,
         learned_rewards: bool = True,
         obs_process_fn: Optional[mbrl.types.ObsProcessFnType] = None,
+        act_process_fn = None,
         no_delta_list: Optional[List[int]] = None,
         num_elites: Optional[int] = None,
     ):
@@ -95,6 +96,7 @@ class OneDTransitionRewardModel(Model):
         self.target_is_delta = target_is_delta
         self.no_delta_list = no_delta_list if no_delta_list else []
         self.obs_process_fn = obs_process_fn
+        self.act_process_fn = act_process_fn
 
         self.num_elites = num_elites
         if not num_elites and isinstance(self.model, Ensemble):
@@ -107,6 +109,8 @@ class OneDTransitionRewardModel(Model):
     ) -> torch.Tensor:
         if self.obs_process_fn:
             obs = self.obs_process_fn(obs)
+        if self.act_process_fn:
+            action = self.act_process_fn(action)
         obs = model_util.to_tensor(obs).to(self.device)
         action = model_util.to_tensor(action).to(self.device)
         model_in = torch.cat([obs, action], dim=obs.ndim - 1)
@@ -158,6 +162,8 @@ class OneDTransitionRewardModel(Model):
             action = action[None, :]
         if self.obs_process_fn:
             obs = self.obs_process_fn(obs)
+        if self.act_process_fn:
+            action = self.act_process_fn(action)
         model_in_np = np.concatenate([obs, action], axis=obs.ndim - 1)
         self.input_normalizer.update_stats(model_in_np)
 
