@@ -1,4 +1,5 @@
 import os.path
+from typing import Optional
 
 import numpy as np
 import torch
@@ -6,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
 
+from mbrl.models import ModelEnv
 from mbrl.planning import Agent
 from mbrl.third_party.pytorch_sac_pranz24.model import weights_init_
 
@@ -38,6 +40,7 @@ class DDQNAgent(Agent):
         self.tau = args.tau
         self.strategy = strategy
         self.num_epochs = num_epochs
+        self.action_space = action_space
 
         self.target_update_interval = args.target_update_interval
 
@@ -52,11 +55,11 @@ class DDQNAgent(Agent):
     def compute_epsilon(self, epoch):
         end_epoch = int(self.strategy.exploration_fraction * self.num_epochs)
         if epoch >= end_epoch:
-            return self.strategy.exploration_initial_eps
+            return self.strategy.exploration_final_eps
         else:
             return self.strategy.exploration_initial_eps - (self.strategy.exploration_initial_eps - self.strategy.exploration_final_eps) * (epoch / end_epoch)
 
-    def select_action(self, state, batched=False, evaluate=False, epoch=None):
+    def select_action(self, state, batched=False, evaluate=False, epoch=None, model_env: Optional[ModelEnv]=None):
         state = torch.FloatTensor(state)
         if not batched:
             state = state.unsqueeze(0)
@@ -75,6 +78,23 @@ class DDQNAgent(Agent):
                     action = torch.randint(0, q_values.shape[-1], (1,))
                 else:
                     action = torch.argmax(q_values, dim=-1)
+        elif self.strategy.name == "count-based" and not evaluate:
+            actions = torch.arange(self.action_space.n).repeat(state.shape[0], 1)
+            states = state.unsqueeze(1).repeat(1, self.action_space.n, 1)
+            div = model_env.dynamics_model.jensen_renyi_divergence(actions, {"obs": states})
+
+            # div = []
+            # for action in range(self.action_space.n):
+            #     div.append(
+            #         model_env.dynamics_model.jensen_renyi_divergence(torch.full((state.shape[0],), action), {"obs": state})
+            #     )
+            # div = torch.stack(div, dim=-1)
+
+            counts = 1 / (torch.exp(div + 1e-6) - 1)
+            if epoch % 3 == 0:
+                print(q_values, 0.05 * torch.sqrt(counts + 0.01), q_values.argmax(dim=-1), (q_values + 0.05 * torch.sqrt(counts + 0.01)).argmax(dim=-1), epoch)
+            action = torch.argmax(q_values + 0.05 * (counts + 0.01), dim=-1)
+
         else:
             action = torch.argmax(q_values, dim=-1)
 
@@ -125,14 +145,16 @@ class DDQNAgent(Agent):
         loss = F.mse_loss(current_q_value, td_target)
 
         # with torch.no_grad():
-        #     target_max, _ = self.target_network(next_state_batch).max(dim=1)
+        #     target_max, _ = self.target_network(next_state_batch).max(dim=1, keepdim=True)
         #     td_target = reward_batch + mask_batch * self.gamma * target_max
-        # old_val = self.q_network(state_batch).gather(1, action_batch).squeeze()
+        #
+        # old_val = self.q_network(state_batch).gather(1, action_batch)
         # loss = F.mse_loss(td_target, old_val)
 
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), self.args.grad_clip)
+
+        # torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), self.args.grad_clip)
         self.optimizer.step()
 
         if updates % self.target_update_interval == 0:

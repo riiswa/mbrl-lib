@@ -38,6 +38,7 @@ def rollout_model_and_populate_sac_buffer(
     sac_buffer: mbrl.util.ReplayBuffer,
     rollout_horizon: int,
     batch_size: int,
+    posterior_sampling: bool = False,
 ):
     batch = replay_buffer.sample(batch_size)
     initial_obs, *_ = cast(mbrl.types.TransitionBatch, batch).astuple()
@@ -48,10 +49,16 @@ def rollout_model_and_populate_sac_buffer(
     accum_dones = np.zeros(initial_obs.shape[0], dtype=bool)
     obs = initial_obs
     for i in range(rollout_horizon):
-        action = agent.act(obs, sample=False, batched=True)
+        action = agent.act(obs, sample=False, batched=True, model_env=model_env)
+
+        elite_models = model_env.dynamics_model.model.elite_models
+        if posterior_sampling:
+            model_env.dynamics_model.model.set_elite([np.random.choice(elite_models)])
         pred_next_obs, pred_rewards, pred_dones, model_state = model_env.step(
             action, model_state, sample=True
         )
+        model_env.dynamics_model.model.set_elite(elite_models)
+
         truncateds = np.zeros_like(pred_dones, dtype=bool)
         sac_buffer.add_batch(
             obs[~accum_dones],
@@ -187,6 +194,7 @@ def train(
             )
         )
         sac_buffer_capacity = rollout_length * rollout_batch_size * trains_per_epoch
+
         sac_buffer_capacity *= cfg.overrides.num_epochs_to_retain_sac_buffer
         sac_buffer = maybe_replace_sac_buffer(
             sac_buffer, obs_shape, act_shape, sac_buffer_capacity, cfg.seed
@@ -215,7 +223,7 @@ def train(
             truncated,
             _,
         ) = mbrl.util.common.step_env_and_add_to_buffer(
-            env, obs, agent, {"epoch": epoch}, replay_buffer
+            env, obs, agent, {"epoch": epoch, "model_env": model_env, "sample": True}, replay_buffer
         )
 
         episodic_reward += reward
@@ -240,6 +248,7 @@ def train(
                 sac_buffer,
                 rollout_length,
                 rollout_batch_size,
+                cfg.strategy.name == "thompson"
             )
 
             if debug_mode:

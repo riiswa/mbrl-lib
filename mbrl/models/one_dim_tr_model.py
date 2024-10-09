@@ -248,6 +248,45 @@ class OneDTransitionRewardModel(Model):
             output = self.model.forward(model_in)
         return output, target
 
+    def jensen_renyi_divergence(
+            self,
+            act: torch.Tensor,
+            model_state: Dict[str, torch.Tensor],
+    ):
+        model_in = self._get_model_input(model_state["obs"], act)
+
+        mean, logvar = self.forward(model_in, use_propagation=False)
+
+        # Extract relevant parts of mean and variance
+        mu = (mean[..., :-1] if self.learned_rewards else mean).transpose(0, 1)
+        var = torch.exp(logvar[..., :-1] if self.learned_rewards else logvar).transpose(0, 1)
+
+        n_act, es, d_s = mu.size()
+
+        # entropy of the mean
+        mu_diff = mu.unsqueeze(1) - mu.unsqueeze(2)  # shape: (n_actors, ensemble_size, ensemble_size, d_state)
+        var_sum = var.unsqueeze(1) + var.unsqueeze(2)  # shape: (n_actors, ensemble_size, ensemble_size, d_state)
+
+        err = (mu_diff * 1 / var_sum * mu_diff)  # shape: (n_actors, ensemble_size, ensemble_size, d_state)
+        err = torch.sum(err, dim=-1)  # shape: (n_actors, ensemble_size, ensemble_size)
+        det = torch.sum(torch.log(var_sum), dim=-1)  # shape: (n_actors, ensemble_size, ensemble_size)
+
+        log_z = -0.5 * (err + det)  # shape: (n_actors, ensemble_size, ensemble_size)
+        log_z = log_z.reshape(n_act, es * es)  # shape: (n_actors, ensemble_size * ensemble_size)
+        mx, _ = log_z.max(dim=1, keepdim=True)  # shape: (n_actors, 1)
+        log_z = log_z - mx  # shape: (n_actors, ensemble_size * ensemble_size)
+        exp = torch.exp(log_z).mean(dim=1, keepdim=True)  # shape: (n_actors, 1)
+        entropy_mean = -mx - torch.log(exp)  # shape: (n_actors, 1)
+        entropy_mean = entropy_mean[:, 0]  # shape: (n_actors)
+
+        # mean of entropies
+        total_entropy = torch.sum(torch.log(var), dim=-1)  # shape: (n_actors, ensemble_size)
+        mean_entropy = total_entropy.mean(dim=1) / 2 + d_s * np.log(2) / 2  # shape: (n_actors)
+
+        # jensen-renyi divergence
+        return entropy_mean - mean_entropy
+
+
     def sample(
         self,
         act: torch.Tensor,

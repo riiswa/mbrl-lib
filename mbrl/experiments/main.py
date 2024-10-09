@@ -1,5 +1,3 @@
-from pprint import pprint
-
 import hydra
 import math
 import numpy as np
@@ -30,6 +28,17 @@ def make_env(env_name):
             done = ~not_done
             done = done[:, None]
             return done
+        return env, termination_fn
+    if env_name == "MountainCar-v0":
+        env = gym.make("MountainCar-v0", max_episode_steps=200)
+
+        def termination_fn(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
+            assert len(next_obs.shape) == 2
+
+            x = next_obs[:, 0]  # position of the car
+
+            goal_position = 0.5
+            return (x >= goal_position)[:, None]
         return env, termination_fn
     else:
         raise NotImplementedError

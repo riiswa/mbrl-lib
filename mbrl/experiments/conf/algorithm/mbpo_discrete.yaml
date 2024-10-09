@@ -7,10 +7,10 @@ target_is_delta: true
 learned_rewards: true
 freq_train_model: ${overrides.freq_train_model}
 real_data_ratio: 0.0
-dataset_size: 50000
+dataset_size: 10000
 
 sac_samples_action: true
-initial_exploration_steps: 1000
+initial_exploration_steps: 200
 random_initial_explore: true
 num_eval_episodes: 1
 
