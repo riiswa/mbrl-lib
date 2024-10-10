@@ -11,25 +11,25 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 
 
-class PointmazeWrapper(gym.Wrapper):
+class AntMazeWrapper(gym.Wrapper):
 
     maze_to_start = {
-        "PointMaze_Open-v3": np.array([2,3]),
-        "PointMaze_UMaze-v3": np.array([4,1]),
-        "PointMaze_Medium-v3": np.array([7,1]),
-        "PointMaze_Large-v3": np.array([8,1])
+        "AntMaze_Open-v4": np.array([3,1]),
+        "AntMaze_UMaze-v4": np.array([4,1]),
+        "AntMaze_Medium-v4": np.array([7,1]),
+        "AntMaze_Large-v4": np.array([8,1])
     }
 
     maze_to_goal = {
-        "PointMaze_Open-v3": np.array([1,5]),
-        "PointMaze_UMaze-v3": np.array([1,1]),
-        "PointMaze_Medium-v3": np.array([1,6]),
-        "PointMaze_Large-v3": np.array([1,10])
+        "AntMaze_Open-v4": np.array([1,1]),
+        "AntMaze_UMaze-v4": np.array([1,1]),
+        "AntMaze_Medium-v4": np.array([1,6]),
+        "AntMaze_Large-v4": np.array([1,10])
     }
 
     def __init__(self,env) -> gym.Env:
         super().__init__(env)
-        self.xy = torch.Tensor(env.unwrapped.maze.cell_rowcol_to_xy(PointmazeWrapper.maze_to_goal[env.spec.id]))
+        self.xy = torch.Tensor(env.unwrapped.maze.cell_rowcol_to_xy(AntMazeWrapper.maze_to_goal[env.spec.id]))
 
     def reset(self,seed:int=None,options:Dict[str,Any]=None) -> Tuple[Any,Dict[str,Any]]:
         #### fix goal and start position
@@ -37,8 +37,8 @@ class PointmazeWrapper(gym.Wrapper):
         return self.env.reset(
             seed=seed,
             options={
-                "reset_cell": PointmazeWrapper.maze_to_start[self.spec.id],
-                "goal_cell": PointmazeWrapper.maze_to_goal[self.spec.id],
+                "reset_cell": AntMazeWrapper.maze_to_start[self.spec.id],
+                "goal_cell": AntMazeWrapper.maze_to_goal[self.spec.id],
                 **options 
             }
         )

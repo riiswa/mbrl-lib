@@ -1,5 +1,5 @@
 # @package _group_
-env: "pointmaze_D5_Mopen_S1"
+env: "antmaze_D3_Mopen_S1"
 trial_length: 200
 
 num_epochs: 200
@@ -17,10 +17,10 @@ num_sac_updates_per_step: 20
 sac_updates_every_steps: 4
 num_epochs_to_retain_sac_buffer: 1
 
-negative_activation: true
-sac_gamma: 0.95
-sac_tau: 0.005
-sac_target_update_interval: 4
+negative_activation: false
+sac_gamma: 0.99
+sac_tau: 1.0
+sac_target_update_interval: 250
 sac_hidden_size: 64
 sac_lr: 0.001
 sac_batch_size: 128
