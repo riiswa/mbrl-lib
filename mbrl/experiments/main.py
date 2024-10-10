@@ -5,11 +5,14 @@ import omegaconf
 import torch
 
 import gymnasium as gym
+import gymnasium.wrappers as wrappers
+import gymnasium_robotics
 
 from mbrl.algorithms import mbpo_discrete
+from mbrl.env.pointmaze_discrete import PointmazeWrapper
 
 
-def make_env(env_name):
+def make_env(env_name,):
     if env_name == "CartPole-v1":
         env = gym.make("CartPole-v1", max_episode_steps=200)
         def termination_fn(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
@@ -39,7 +42,49 @@ def make_env(env_name):
 
             goal_position = 0.5
             return (x >= goal_position)[:, None]
+        return env, 
+    if "pointmaze_D" in env_name:
+        n_actions = int(env_name.split("_")[1][1:])
+        maze = env_name.split("_")[2][1:]
+        std = float(env_name.split("_")[3][1:])/100
+        print(f"n_actions: {n_actions}, maze: {maze}, std: {std}")
+        maze_to_name = {
+            "open": "PointMaze_Open-v3",
+            "umaze": "PointMaze_UMaze-v3",
+            "medium": "PointMaze_Medium-v3",
+            "large": "PointMaze_Large-v3"
+        }
+        env = gym.make(
+            maze_to_name[maze],
+            max_episode_steps=500,
+            render_mode="human",
+            continuing_task=False
+        )
+
+        env = PointmazeWrapper(env)
+
+        termination_fn = env.termination_fn
+        
+        min_action, max_action = -1 + 2 * std, 1 - 2 * std
+        available_actions_range = np.linspace(min_action,max_action,n_actions)
+
+        available_actions = np.array([[a1,a2] for a1 in available_actions_range for a2 in available_actions_range])
+
+        env = wrappers.TransformAction(env, lambda a: available_actions[a], gym.spaces.Discrete(n_actions**2))
+        
+        # def transform_observation(obs):
+        #     observation = obs["observation"]
+        #     achieved_goal = obs["achieved_goal"]
+        #     desired_goal = obs["desired_goal"]
+        #     distance = np.linalg.norm(desired_goal - achieved_goal, axis=-1, keepdims=True)
+        #     return np.concatenate([observation, distance], axis=-1)
+
+        # env = wrappers.TransformObservation(env, transform_observation, gym.spaces.Box(-np.inf, np.inf, (5,)))
+
+        env = wrappers.TransformObservation(env, lambda o: o["observation"], gym.spaces.Box(-np.inf, np.inf, (4,)))
+    
         return env, termination_fn
+    
     else:
         raise NotImplementedError
 
