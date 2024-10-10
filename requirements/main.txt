@@ -3,6 +3,7 @@ hydra-core==1.0.2
 termcolor>=1.1.0
 tensorboard>=2.4.0
 imageio>=2.9.0
+minari==0.4.3
 numpy>=1.19.1
 matplotlib>=3.3.1
 gymnasium>=0.26.3

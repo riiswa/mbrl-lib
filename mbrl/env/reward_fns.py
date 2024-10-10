@@ -7,6 +7,11 @@ import torch
 from . import termination_fns
 
 
+def pointmaze(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
+    done = termination_fns.pointmaze(act, next_obs)
+    return done.float().view(-1, 1)
+
+
 def cartpole(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
     assert len(next_obs.shape) == len(act.shape) == 2
 

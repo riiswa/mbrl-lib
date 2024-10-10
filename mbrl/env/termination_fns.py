@@ -9,6 +9,16 @@ import torch
 # TODO remove act from all of these, it's not needed
 
 
+
+def pointmaze(act:torch.Tensor,next_obs:torch.Tensor) -> torch.Tensor:
+    goal = next_obs[:,-2:]
+    pos = next_obs[:,:-4:-2]
+    distance = torch.norm(goal - pos, dim=1)
+    done = distance < 5e-2
+    done = done[:, None]
+    return done
+
+
 def hopper(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
     assert len(next_obs.shape) == 2
 
