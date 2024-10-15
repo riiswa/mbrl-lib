@@ -46,7 +46,7 @@ def make_env(env_name):
 
             goal_position = 0.5
             return (x >= goal_position)[:, None]
-        return env,
+        return env, termination_fn
 
     if "pointmaze_D" in env_name:
         n_actions = int(env_name.split("_")[1][1:])
