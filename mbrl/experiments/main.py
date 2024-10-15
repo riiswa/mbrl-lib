@@ -7,14 +7,14 @@ import torch
 import gymnasium as gym
 import gymnasium.wrappers as wrappers
 import gymnasium_robotics
+from gymnasium.wrappers import TransformReward
 
 from mbrl.algorithms import mbpo_discrete
 from mbrl.env.pointmaze_discrete import PointmazeWrapper
 from mbrl.env.antmaze_discrete import AntMazeWrapper
 
 
-def make_env(env_name,):
-
+def make_env(env_name):
     if env_name == "CartPole-v1":
         env = gym.make("CartPole-v1", max_episode_steps=200)
         def termination_fn(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
@@ -34,9 +34,10 @@ def make_env(env_name,):
             done = done[:, None]
             return done
         return env, termination_fn
-    
+
     if env_name == "MountainCar-v0":
         env = gym.make("MountainCar-v0", max_episode_steps=200)
+        env = TransformReward(env, lambda r: r * 0.1)
 
         def termination_fn(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
             assert len(next_obs.shape) == 2
@@ -45,7 +46,7 @@ def make_env(env_name,):
 
             goal_position = 0.5
             return (x >= goal_position)[:, None]
-        return env, 
+        return env,
 
     if "pointmaze_D" in env_name:
         n_actions = int(env_name.split("_")[1][1:])
@@ -68,21 +69,21 @@ def make_env(env_name,):
         env = PointmazeWrapper(env)
 
         termination_fn = env.termination_fn
-        
+
         min_action, max_action = -1 + 2 * std, 1 - 2 * std
         available_actions_range = np.linspace(min_action,max_action,n_actions)
 
         available_actions = np.array([[a1,a2] for a1 in available_actions_range for a2 in available_actions_range])
 
         env = wrappers.TransformObservation(
-            env, 
-            lambda o: np.concatenate([o["observation"], o["desired_goal"] - o["achieved_goal"]]), 
+            env,
+            lambda o: np.concatenate([o["observation"], o["desired_goal"] - o["achieved_goal"]]),
             gym.spaces.Box(-np.inf, np.inf, (6,))
         )
 
         env = wrappers.TransformAction(env, lambda a: available_actions[a], gym.spaces.Discrete(n_actions**2))
         env = wrappers.TransformReward(env, lambda r: r - 1)
-    
+
         return env, termination_fn
 
     if "antmaze_D" in env_name:
@@ -106,7 +107,7 @@ def make_env(env_name,):
         env = AntMazeWrapper(env)
 
         termination_fn = env.termination_fn
-        
+
         min_action, max_action = -1 + 2 * std, 1 - 2 * std
         available_actions_range = np.linspace(min_action,max_action,n_actions)
 
@@ -114,9 +115,9 @@ def make_env(env_name,):
 
         env = wrappers.TransformAction(env, lambda a: available_actions[a], gym.spaces.Discrete(n_actions**2))
         env = wrappers.TransformObservation(env, lambda o: o["observation"], gym.spaces.Box(-np.inf, np.inf, (27,)))
-    
+
         return env, termination_fn
-    
+
     else:
         raise NotImplementedError
 

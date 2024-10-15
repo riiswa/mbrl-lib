@@ -5,7 +5,7 @@ num_layers: 4
 in_size: ???
 out_size: ???
 ensemble_size: 7
-hid_size: 200
+hid_size: 100
 deterministic: false
 propagation_method: random_model
 learn_logvar_bounds: false  # so far this works better

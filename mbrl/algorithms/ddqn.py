@@ -82,19 +82,8 @@ class DDQNAgent(Agent):
             actions = torch.arange(self.action_space.n).repeat(state.shape[0], 1)
             states = state.unsqueeze(1).repeat(1, self.action_space.n, 1)
             div = model_env.dynamics_model.jensen_renyi_divergence(actions, {"obs": states})
-
-            # div = []
-            # for action in range(self.action_space.n):
-            #     div.append(
-            #         model_env.dynamics_model.jensen_renyi_divergence(torch.full((state.shape[0],), action), {"obs": state})
-            #     )
-            # div = torch.stack(div, dim=-1)
-
             counts = 1 / (torch.exp(div + 1e-6) - 1)
-            if epoch % 3 == 0:
-                print(q_values, 0.05 * torch.sqrt(counts + 0.01), q_values.argmax(dim=-1), (q_values + 0.05 * torch.sqrt(counts + 0.01)).argmax(dim=-1), epoch)
-            action = torch.argmax(q_values + 0.05 * (counts + 0.01), dim=-1)
-
+            action = torch.argmax(q_values + self.strategy.beta * torch.sqrt(1 / (counts + 0.01)), dim=-1)
         else:
             action = torch.argmax(q_values, dim=-1)
 

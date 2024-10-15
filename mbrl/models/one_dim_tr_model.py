@@ -260,6 +260,7 @@ class OneDTransitionRewardModel(Model):
         # Extract relevant parts of mean and variance
         mu = (mean[..., :-1] if self.learned_rewards else mean).transpose(0, 1)
         var = torch.exp(logvar[..., :-1] if self.learned_rewards else logvar).transpose(0, 1)
+        var = var * 0.1
 
         n_act, es, d_s = mu.size()
 
