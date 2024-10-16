@@ -15,7 +15,7 @@ experiment: default
 root_dir: "./exp"
 hydra:
   run:
-    dir: ${root_dir}/${experiment}/${strategy.name}/${overrides.env}/${seed}
+    dir: ${root_dir}/${experiment}/${strategy.name}/${overrides.env}/
 
   sweep:
-    dir: ${root_dir}/${experiment}/${strategy.name}/${overrides.env}/${seed}
+    dir: ${root_dir}/${experiment}/${strategy.name}/${overrides.env}/
