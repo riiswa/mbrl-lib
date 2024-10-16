@@ -22,11 +22,11 @@ hydra:
       
 defaults:
   - __self__
-  - override hydra/launcher: submitit_slurm
   - algorithm: mbpo_discrete
   - dynamics_model: gaussian_mlp_ensemble
   - overrides: pointmaze
   - strategy: count_based
+  - override hydra/launcher: submitit_slurm
 
 seed: 0
 device: "cpu"
