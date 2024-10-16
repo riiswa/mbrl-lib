@@ -253,14 +253,17 @@ class OneDTransitionRewardModel(Model):
             act: torch.Tensor,
             model_state: Dict[str, torch.Tensor],
     ):
+        obs = model_util.to_tensor(model_state["obs"]).to(self.device)
         model_in = self._get_model_input(model_state["obs"], act)
 
         mean, logvar = self.forward(model_in, use_propagation=False)
 
+        next_states = mean[..., :-1] if self.learned_rewards else mean
+        rewards = mean[..., -1:] if self.learned_rewards else None
+
         # Extract relevant parts of mean and variance
-        mu = (mean[..., :-1] if self.learned_rewards else mean).transpose(0, 1)
+        mu = next_states.transpose(0, 1)
         var = torch.exp(logvar[..., :-1] if self.learned_rewards else logvar).transpose(0, 1)
-        var = var * 0.1
 
         n_act, es, d_s = mu.size()
 
@@ -284,8 +287,14 @@ class OneDTransitionRewardModel(Model):
         total_entropy = torch.sum(torch.log(var), dim=-1)  # shape: (n_actors, ensemble_size)
         mean_entropy = total_entropy.mean(dim=1) / 2 + d_s * np.log(2) / 2  # shape: (n_actors)
 
+        if self.target_is_delta:
+            tmp_ = next_states + obs
+            for dim in self.no_delta_list:
+                tmp_[:, dim] = next_states[:, dim]
+            next_states = tmp_
+
         # jensen-renyi divergence
-        return entropy_mean - mean_entropy
+        return entropy_mean - mean_entropy, next_states, rewards
 
 
     def sample(

@@ -5,11 +5,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from scipy.optimize import minimize_scalar
 from torch.optim import Adam
 
 from mbrl.models import ModelEnv
 from mbrl.planning import Agent
 from mbrl.third_party.pytorch_sac_pranz24.model import weights_init_
+
+def compute_k(delta, x):
+    return -np.mean(np.log(1 - delta * x))
 
 
 class QNetwork(nn.Module):
@@ -81,9 +85,40 @@ class DDQNAgent(Agent):
         elif self.strategy.name == "count-based" and not evaluate:
             actions = torch.arange(self.action_space.n).repeat(state.shape[0], 1)
             states = state.unsqueeze(1).repeat(1, self.action_space.n, 1)
-            div = model_env.dynamics_model.jensen_renyi_divergence(actions, {"obs": states})
+            div, _, _ = model_env.dynamics_model.jensen_renyi_divergence(actions, {"obs": states})
             counts = 1 / (torch.exp(div + 1e-6) - 1)
-            action = torch.argmax(q_values + self.strategy.beta * torch.sqrt(1 / (counts + 0.01)), dim=-1)
+            bonus = self.strategy.beta * torch.sqrt(1 / (counts + 0.01))
+            action = torch.argmax(q_values + bonus, dim=-1)
+        elif self.strategy.name == "imed" and not evaluate:
+            actions = torch.arange(self.action_space.n).repeat(state.shape[0], 1)
+            states = state.unsqueeze(1).repeat(1, self.action_space.n, 1)
+            div, next_states, rewards = model_env.dynamics_model.jensen_renyi_divergence(actions, {"obs": states})
+            terminated = model_env.termination_fn(actions.reshape(actions.shape[0] * actions.shape[1], -1),
+                                     next_states.reshape(next_states.shape[0] * next_states.shape[1], -1))
+            gamma = self.gamma * (~terminated.reshape(next_states.shape[0], next_states.shape[1]))
+
+
+            counts = 1 / (torch.exp(div + 1e-6) - 1)
+            # head, act, obs_dim
+            v, _ = self.q_network(next_states).max(dim=-1)
+
+            qs = rewards.squeeze() + gamma * v
+            q_mean = qs.mean(axis=0)
+            best_action = q_mean.argmax(axis=-1)
+            mu = q_mean[best_action]
+            best_actions = torch.arange(self.action_space.n)[torch.isclose(q_mean, mu, 1e-4)].cpu().numpy()
+
+            deltas = (qs - mu).float().cpu().numpy()
+            M = 0
+            u = (1 / (M - mu) - 1e-6).item()
+            ks = np.zeros(self.action_space.n)
+            for action in range(self.action_space.n):
+                if action not in best_actions:
+                    res = minimize_scalar(compute_k, bounds=(0, u), args=(deltas[:, action],), method="bounded")
+                    ks[action] = -res.fun
+
+            hs = counts * ks + torch.log(counts)
+            action = torch.argmin(hs, dim=-1, keepdim=True)
         else:
             action = torch.argmax(q_values, dim=-1)
 
