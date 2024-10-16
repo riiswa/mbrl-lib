@@ -4,6 +4,7 @@ import numpy as np
 import omegaconf
 import torch
 
+import gym 
 import gymnasium as gym
 import gymnasium.wrappers as wrappers
 import gymnasium_robotics
