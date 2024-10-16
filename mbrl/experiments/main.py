@@ -62,7 +62,7 @@ def make_env(env_name):
         env = gym.make(
             maze_to_name[maze],
             max_episode_steps=500,
-            render_mode="human",
+            render_mode=None,
             continuing_task=False
         )
 
@@ -82,7 +82,7 @@ def make_env(env_name):
         )
 
         env = wrappers.TransformAction(env, lambda a: available_actions[a], gym.spaces.Discrete(n_actions**2))
-        env = wrappers.TransformReward(env, lambda r: r - 1)
+        env = wrappers.TransformReward(env, lambda r: (r - 1) / 10)
 
         return env, termination_fn
 
@@ -100,7 +100,7 @@ def make_env(env_name):
         env = gym.make(
             maze_to_name[maze],
             max_episode_steps=200,
-            render_mode="human",
+            render_mode=None,
             continuing_task=False
         )
 
