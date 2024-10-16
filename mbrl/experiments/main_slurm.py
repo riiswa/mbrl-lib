@@ -4,7 +4,6 @@ import numpy as np
 import omegaconf
 import torch
 
-import gym 
 import gymnasium as gym
 import gymnasium.wrappers as wrappers
 import gymnasium_robotics
@@ -130,6 +129,7 @@ def run(cfg: omegaconf.DictConfig):
     env, term_fn = make_env(cfg.overrides.env)
 
     return mbpo_discrete.train(env, None, term_fn, cfg)
+    pass
 
 if __name__ == "__main__":
     run()

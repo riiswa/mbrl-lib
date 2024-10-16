@@ -21,7 +21,7 @@ agent:
   _target_: mbrl.algorithms.ddqn.DDQNAgent
   num_inputs: ???
   action_space:
-    _target_: gym.spaces.Discrete
+    _target_: gymnasium.spaces.Discrete
     n: ???
   args:
     gamma: ${overrides.sac_gamma}
