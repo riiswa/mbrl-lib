@@ -1,4 +1,4 @@
-omegaconf>=2.0,<2.1
+omegaconf
 hydra-core==1.1.0
 termcolor>=1.1.0
 tensorboard>=2.4.0
