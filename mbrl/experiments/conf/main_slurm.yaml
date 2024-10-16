@@ -9,7 +9,6 @@ hydra:
     dir: ${root_dir}/${experiment}/${strategy.name}/${overrides.env}/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
   launcher:
-    timeout_min: 180
     cpus_per_task: 3
     gpus_per_node: null
     mem_gb: null
@@ -22,6 +21,8 @@ hydra:
       ++seed: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12
       
 defaults:
+  - __self__
+  - override hydra/launcher: submitit_slurm
   - algorithm: mbpo_discrete
   - dynamics_model: gaussian_mlp_ensemble
   - overrides: pointmaze
